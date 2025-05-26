@@ -15,6 +15,12 @@
       </div>
       <button type="submit" class="btn btn-success">Upload</button>
     </form>
+    {% comment %} {% if error %}
+      <div style="color:red;">
+        <strong>Error:</strong> {{ error }}
+        <pre>{{ traceback }}</pre>
+      </div>
+    {% endif %} {% endcomment %}
   </div>
 </body>
 </html>

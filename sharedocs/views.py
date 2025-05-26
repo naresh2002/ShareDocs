@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import HttpResponseRedirect, JsonResponse
 from django.conf import settings
-from django.core.files.storage import FileSystemStorage
+from django.core.files.storage import default_storage
+
 from django.utils import timezone
 from .models import User, File, Comment, AuthToken, FilePublicURL
 import uuid
@@ -84,11 +85,33 @@ def upload_file(request):
 
     if request.method == 'POST' and request.FILES['file']:
         uploaded_file = request.FILES['file']
-        fs = FileSystemStorage()
-        filename = fs.save(uploaded_file.name, uploaded_file)
-        File.objects.create(name=filename, owner=user.username)
-        return redirect('/my_files/')
+        # Save file using default storage (S3)
+        saved_path = default_storage.save(uploaded_file.name, uploaded_file)
+
+        # Create model instance with saved path
+        File.objects.create(name=saved_path, owner=user.username)
     return render(request, 'upload_file.html', {'user': user})
+
+# def upload_file(request):
+#     user = get_user_from_token(request)
+#     if not user:
+#         return redirect('/login/')
+
+#     if request.method == 'POST':
+#         uploaded_file = request.FILES.get('file')
+#         if not uploaded_file:
+#             return render(request, 'upload_file.html', {'user': user, 'error': 'No file uploaded'})
+
+#         try:
+#             # Save the file using the model directly
+#             File.objects.create(name=uploaded_file, owner=user.username)
+#             return redirect('/my_files/')
+#         except Exception as e:
+#             import traceback
+#             tb = traceback.format_exc()
+#             return render(request, 'upload_file.html', {'user': user, 'error': f"Error saving file: {str(e)}", 'traceback': tb})
+
+#     return render(request, 'upload_file.html', {'user': user})
 
 def my_files(request):
     user = get_user_from_token(request)
