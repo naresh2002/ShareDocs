@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>View File | ShareDocs</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .reply {
+      margin-left: 2rem;
+      border-left: 1px solid #ccc;
+      padding-left: 1rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  {% include 'navbar.html' %}
+  {% load time_ago %}
+  <div class="container mt-4">
+    <h3>Viewing: {{ file.name }}</h3>
+
+    {% if user and user.username == file.owner %}
+      <form method="post" action="/toggle_visibility/{{ file.id }}/" class="mb-3">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm {% if is_public %}btn-danger{% else %}btn-success{% endif %}">
+          Make {% if is_public %}Private{% else %}Public{% endif %}
+        </button>
+      </form>
+    {% endif %}
+
+    <embed src="{{ file.name.url }}" type="application/pdf" width="100%" height="600px" />
+
+    <div class="mt-5">
+      <h5>Comments</h5>
+
+      {% if user %}
+        <form id="new-comment-form" class="mb-4">
+          {% csrf_token %}
+          <textarea name="comment_text" id="comment-text" class="form-control mb-2" placeholder="Add a comment..." required></textarea>
+          <input type="hidden" name="parent_comment_id" id="parent-comment-id" value="">
+          <button type="submit" class="btn btn-primary">Post Comment</button>
+        </form>
+      {% else %}
+        <p><a href="/login/">Login</a> to comment</p>
+      {% endif %}
+
+      <div id="comments-section">
+        {% for comment in comments %}
+          {% include "comment_thread.html" with comment=comment user=user %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('new-comment-form').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const text = document.getElementById('comment-text').value;
+      const parentId = document.getElementById('parent-comment-id').value;
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      const response = await fetch('', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          comment_text: text,
+          parent_comment_id: parentId
+        })
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

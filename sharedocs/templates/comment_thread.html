@@ -1,0 +1,58 @@
+{% load time_ago %}
+
+<div class="comment mb-2">
+  <strong>{{ comment.user }}</strong>: {{ comment.comment_text }}
+  <small class="text-muted">• {{ comment.created_at|time_ago }}</small>
+
+  {% if user %}
+    <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleReplyForm('{{ comment.id }}')">Reply</button>
+
+    {% comment %} <form method="post" action="/view_file/{{ file.id }}/" class="reply-form mt-2 d-none" id="reply-form-{{ comment.id }}"> {% endcomment %}
+    <form onsubmit="submitReply(event, '{{ comment.id }}')" class="reply-form mt-2 d-none" id="reply-form-{{ comment.id }}">
+      {% csrf_token %}
+      <textarea name="comment_text" class="form-control mb-2" placeholder="Write a reply..." required></textarea>
+      <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+      <button type="submit" class="btn btn-sm btn-primary">Reply</button>
+    </form>
+  {% endif %}
+
+  {% for reply in comment.replies.all %}
+    <div class="reply">
+      {% include "comment_thread.html" with comment=reply user=user %}
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+  function toggleReplyForm(commentId) {
+    const form = document.getElementById(`reply-form-${commentId}`);
+    form.classList.toggle('d-none');
+  }
+
+  function submitReply(event, commentId) {
+    event.preventDefault();
+
+    const form = document.getElementById(`reply-form-${commentId}`);
+    const textarea = form.querySelector('textarea');
+    const text = textarea.value.trim();
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    if (!text) return;
+
+    fetch('', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({
+        comment_text: text,
+        parent_comment_id: commentId
+      })
+    }).then(response => {
+      if (response.ok) {
+        window.location.reload();  // TODO: replace with dynamic render if desired
+      }
+    });
+  }
+</script>
