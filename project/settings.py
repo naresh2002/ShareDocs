@@ -32,7 +32,7 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=False)
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
 
 # Application definition
@@ -135,8 +135,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 # STATIC_URL = 'static/'
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'sharedocs', 'static')]
+# STATIC_URL = '/static/'
+# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'sharedocs', 'static')]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -166,8 +166,8 @@ AWS_QUERYSTRING_AUTH = False
 
 
 # Use custom backends
-DEFAULT_FILE_STORAGE = 'your_project.storage_backends.MediaStorage'
-STATICFILES_STORAGE = 'your_project.storage_backends.StaticStorage'
+DEFAULT_FILE_STORAGE = 'project.storage_backends.MediaStorage'
+STATICFILES_STORAGE = 'project.storage_backends.StaticStorage'
 
 # Static & Media URLs
 STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
