@@ -4,12 +4,8 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn project.wsgi:application
+    postDeployCommand: python manage.py migrate --noinput
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: project.settings
       - fromDotEnv: true
-
-    postDeployCommand: |
-      echo "Running migrations..."
-      python manage.py migrate --noinput
-      echo "Migrations done!"
