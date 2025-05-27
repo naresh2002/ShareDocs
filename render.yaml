@@ -10,4 +10,6 @@ services:
       - fromDotEnv: true
 
     postDeployCommand: |
-      python manage.py migrate
+      echo "Running migrations..."
+      python manage.py migrate --noinput
+      echo "Migrations done!"
