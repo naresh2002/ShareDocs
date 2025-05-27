@@ -4,7 +4,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn project.wsgi:application
-    postDeployCommand: python manage.py migrate --noinput
+    preDeployCommand: python manage.py migrate --noinput
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: project.settings
