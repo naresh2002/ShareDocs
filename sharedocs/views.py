@@ -4,12 +4,16 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.utils.crypto import get_random_string
-
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from .models import User, File, Comment, AuthToken, FilePublicURL, SignedURL
 import uuid
 import json
 
+
+# Helper functions
+# Helper function to authenticate user from auth token
+# Returns User object if valid token exists, None otherwise
 def get_user_from_token(request):
     token = request.COOKIES.get('auth_token')
     if token:
@@ -19,47 +23,10 @@ def get_user_from_token(request):
             return None
     return None
 
-from django.views.decorators.csrf import csrf_exempt
-
-@csrf_exempt
-def toggle_visibility(request, file_id):
-    user = get_user_from_token(request)
-    file = get_object_or_404(File, id=file_id)
-
-    if not user or file.owner != user.username:
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-
-    public_record, created = FilePublicURL.objects.get_or_create(file=file)
-    public_record.is_public = not public_record.is_public
-    public_record.save()
-    return redirect(f'/view_file/{file_id}/')
-
-@csrf_exempt
-def share_file(request, file_id):
-    user = get_user_from_token(request)
-    file = get_object_or_404(File, id=file_id)
-
-    if not user or user.username != file.owner:
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-
-    if request.method == 'POST':
-        recipient_name = request.POST.get('recipient_name')
-        if not recipient_name:
-            return redirect(f'/view_file/{file_id}/')
-
-        token = get_random_string(20)
-        expires_at = timezone.now() + timezone.timedelta(days=14)
-
-        SignedURL.objects.create(
-            file=file,
-            recipient_name=recipient_name,
-            signed_url=token,
-            expires_at=expires_at
-        )
-
-        request.session['shared_token'] = token
-        return redirect(f'/view_file/{file_id}/?shared=1')
-
+# Authentication views
+# Home page view
+# @param request: HTTP request object
+# @return: Renders home page with user context
 def home(request):
     user = get_user_from_token(request)
     return render(request, 'home.html', {'user': user})
@@ -104,19 +71,14 @@ def logout_view(request):
     response.delete_cookie('auth_token')
     return response
 
+# File management views
+# Upload a new file
+# @param request: HTTP request object
+# @return: Renders upload form or redirects to my_files on success
 def upload_file(request):
     user = get_user_from_token(request)
     if not user:
         return redirect('/login/')
-
-    # if request.method == 'POST' and request.FILES['file']:
-    #     uploaded_file = request.FILES['file']
-    #     # Save file using default storage (S3)
-    #     saved_path = default_storage.save(uploaded_file.name, uploaded_file)
-
-    #     # Create model instance with saved path
-    #     File.objects.create(name=saved_path, owner=user.username)
-    # return render(request, 'upload_file.html', {'user': user})
 
     error = None
     if request.method == 'POST' and 'file' in request.FILES:
@@ -190,6 +152,53 @@ def view_file(request, file_id):
         'request': request
     })
 
+# File sharing views
+# Toggle file visibility between public/private
+# @param request: HTTP request object
+# @param file_id: ID of the file to toggle visibility for
+# @return: Redirects to file view page
+@csrf_exempt
+def toggle_visibility(request, file_id):
+    user = get_user_from_token(request)
+    file = get_object_or_404(File, id=file_id)
+
+    if not user or file.owner != user.username:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    public_record, created = FilePublicURL.objects.get_or_create(file=file)
+    public_record.is_public = not public_record.is_public
+    public_record.save()
+    return redirect(f'/view_file/{file_id}/')
+
+# Generate a temporary shareable link for a file
+# @param request: HTTP request object
+# @param file_id: ID of the file to share
+# @return: Redirects to file view page with shared token
+@csrf_exempt
+def share_file(request, file_id):
+    user = get_user_from_token(request)
+    file = get_object_or_404(File, id=file_id)
+
+    if not user or user.username != file.owner:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'POST':
+        recipient_name = request.POST.get('recipient_name')
+        if not recipient_name:
+            return redirect(f'/view_file/{file_id}/')
+
+        token = get_random_string(20)
+        expires_at = timezone.now() + timezone.timedelta(days=14)
+
+        SignedURL.objects.create(
+            file=file,
+            recipient_name=recipient_name,
+            signed_url=token,
+            expires_at=expires_at
+        )
+
+        request.session['shared_token'] = token
+        return redirect(f'/view_file/{file_id}/?shared=1')
 
 def shared_file(request, token):
     signed = get_object_or_404(SignedURL, signed_url=token)
