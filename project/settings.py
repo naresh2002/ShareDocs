@@ -149,7 +149,9 @@ AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = ''
 AWS_QUERYSTRING_AUTH = False
 AWS_S3_OBJECT_ACL = ''
-
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+}
 # Use custom backends
 DEFAULT_FILE_STORAGE = 'project.storage_backends.MediaStorage'
 STATICFILES_STORAGE = 'project.storage_backends.StaticStorage'
