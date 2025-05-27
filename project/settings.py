@@ -12,8 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os
 import environ
 from pathlib import Path
-# from django.middleware.clickjacking import XFrameOptionsMiddleware
-    
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,9 +27,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
 DEBUG = env.bool('DEBUG', default=False)
-
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
@@ -84,7 +81,6 @@ WSGI_APPLICATION = 'project.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    # POSTGRES DATABASE
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': env('DATABASE_NAME'),
@@ -93,10 +89,6 @@ DATABASES = {
         'HOST': env('HOST'),
         'PORT': env('PORT'),
     }
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
 }
 
 
@@ -143,14 +135,8 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# X_FRAME_OPTIONS = 'ALLOWALL'
-
 # SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 # SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = None
-
-# MEDIA_URL = '/media/'
-# MEDIA_ROOT = BASE_DIR / 'media'
-
 
 # AWS S3 Settings
 AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID')
@@ -163,8 +149,6 @@ AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = ''
 AWS_QUERYSTRING_AUTH = False
 AWS_S3_OBJECT_ACL = ''
-
-
 
 # Use custom backends
 DEFAULT_FILE_STORAGE = 'project.storage_backends.MediaStorage'
