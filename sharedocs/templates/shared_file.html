@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shared File | ShareDocs</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .reply {
+      margin-left: 2rem;
+      border-left: 1px solid #ccc;
+      padding-left: 1rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container mt-4">
+    <h3>Shared View: {{ file.name }}</h3>
+    <p class="text-muted">Viewing as: <strong>{{ recipient }}</strong></p>
+
+    <embed src="{{ file.name.url }}" type="application/pdf" width="100%" height="600px" /><br><br>
+
+    <div class="mt-5">
+      <h5>Comments</h5>
+
+      <form id="shared-comment-form" class="mb-4">
+        {% csrf_token %}
+        <textarea name="comment_text" id="shared-comment-text" class="form-control mb-2" placeholder="Add a comment..." required></textarea>
+        <input type="hidden" name="parent_comment_id" id="shared-parent-comment-id" value="">
+        <button type="submit" class="btn btn-primary">Post Comment</button>
+        <button type="button" id="cancel-reply" class="btn btn-secondary btn-sm ms-2 d-none">Cancel Reply</button>
+      </form>
+
+      <div id="comments-section">
+        {% for comment in comments %}
+          {% include "comment_thread.html" with comment=comment user=True %}
+        {% empty %}
+          <p class="text-muted">No comments yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('shared-comment-form').addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const text = document.getElementById('shared-comment-text').value;
+      const parentId = document.getElementById('shared-parent-comment-id').value;
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+      const response = await fetch('', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          comment_text: text,
+          parent_comment_id: parentId
+        })
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      }
+    });
+
+    function replyToComment(commentId) {
+      document.getElementById('shared-parent-comment-id').value = commentId;
+      document.getElementById('cancel-reply').classList.remove('d-none');
+      document.getElementById('shared-comment-text').focus();
+    }
+
+    document.getElementById('cancel-reply').addEventListener('click', () => {
+      document.getElementById('shared-parent-comment-id').value = '';
+      document.getElementById('cancel-reply').classList.add('d-none');
+    });
+  </script>
+</body>
+</html>

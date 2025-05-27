@@ -10,4 +10,6 @@ urlpatterns = [
     path('my_files/', views.my_files),
     path('view_file/<uuid:file_id>/', views.view_file),
     path('toggle_visibility/<uuid:file_id>/', views.toggle_visibility),
+    path('share_file/<uuid:file_id>/', views.share_file, name='share_file'),
+    path('shared_file/<str:token>/', views.shared_file, name='shared_file'),
 ]

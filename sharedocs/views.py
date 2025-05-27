@@ -3,9 +3,10 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.http import HttpResponseRedirect, JsonResponse
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.utils.crypto import get_random_string
 
 from django.utils import timezone
-from .models import User, File, Comment, AuthToken, FilePublicURL
+from .models import User, File, Comment, AuthToken, FilePublicURL, SignedURL
 import uuid
 import json
 
@@ -33,6 +34,31 @@ def toggle_visibility(request, file_id):
     public_record.save()
     return redirect(f'/view_file/{file_id}/')
 
+@csrf_exempt
+def share_file(request, file_id):
+    user = get_user_from_token(request)
+    file = get_object_or_404(File, id=file_id)
+
+    if not user or user.username != file.owner:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    if request.method == 'POST':
+        recipient_name = request.POST.get('recipient_name')
+        if not recipient_name:
+            return redirect(f'/view_file/{file_id}/')
+
+        token = get_random_string(20)
+        expires_at = timezone.now() + timezone.timedelta(days=14)
+
+        SignedURL.objects.create(
+            file=file,
+            recipient_name=recipient_name,
+            signed_url=token,
+            expires_at=expires_at
+        )
+
+        request.session['shared_token'] = token
+        return redirect(f'/view_file/{file_id}/?shared=1')
 
 def home(request):
     user = get_user_from_token(request)
@@ -45,7 +71,7 @@ def signup_view(request):
         password = make_password(request.POST['password'])
 
         if User.objects.filter(email=email).exists():
-            return render(request, 'signup.html', {'error': 'Email already exists'})
+            return render(request, 'signup.html', {'error': 'Email already exists in database, please choose a different email'})
 
         User.objects.create(username=username, email=email, password=password)
         return redirect('/login/')
@@ -65,7 +91,7 @@ def login_view(request):
                 response.set_cookie('auth_token', token)
                 return response
             else:
-                raise ValueError("Invalid password")
+                raise ValueError("Invalid password, please try again!")
         except:
             return render(request, 'login.html', {'error': 'Invalid credentials'})
     return render(request, 'login.html')
@@ -83,35 +109,35 @@ def upload_file(request):
     if not user:
         return redirect('/login/')
 
-    if request.method == 'POST' and request.FILES['file']:
+    # if request.method == 'POST' and request.FILES['file']:
+    #     uploaded_file = request.FILES['file']
+    #     # Save file using default storage (S3)
+    #     saved_path = default_storage.save(uploaded_file.name, uploaded_file)
+
+    #     # Create model instance with saved path
+    #     File.objects.create(name=saved_path, owner=user.username)
+    # return render(request, 'upload_file.html', {'user': user})
+
+    error = None
+    if request.method == 'POST' and 'file' in request.FILES:
         uploaded_file = request.FILES['file']
-        # Save file using default storage (S3)
-        saved_path = default_storage.save(uploaded_file.name, uploaded_file)
 
-        # Create model instance with saved path
-        File.objects.create(name=saved_path, owner=user.username)
-    return render(request, 'upload_file.html', {'user': user})
+        # Validate content type
+        if uploaded_file.content_type != 'application/pdf':
+            error = "Only PDF files are allowed."
+        # Optional: double-check the file extension
+        elif not uploaded_file.name.lower().endswith('.pdf'):
+            error = "The file must have a .pdf extension."
 
-# def upload_file(request):
-#     user = get_user_from_token(request)
-#     if not user:
-#         return redirect('/login/')
+        if not error:
+            # Save the uploaded file
+            saved_path = default_storage.save(uploaded_file.name, uploaded_file)
 
-#     if request.method == 'POST':
-#         uploaded_file = request.FILES.get('file')
-#         if not uploaded_file:
-#             return render(request, 'upload_file.html', {'user': user, 'error': 'No file uploaded'})
+            # Create File model instance with saved path
+            File.objects.create(name=saved_path, owner=user.username)
+            return redirect('/my_files/')  # Optional: redirect after successful upload
 
-#         try:
-#             # Save the file using the model directly
-#             File.objects.create(name=uploaded_file, owner=user.username)
-#             return redirect('/my_files/')
-#         except Exception as e:
-#             import traceback
-#             tb = traceback.format_exc()
-#             return render(request, 'upload_file.html', {'user': user, 'error': f"Error saving file: {str(e)}", 'traceback': tb})
-
-#     return render(request, 'upload_file.html', {'user': user})
+    return render(request, 'upload_file.html', {'user': user, 'error': error})
 
 def my_files(request):
     user = get_user_from_token(request)
@@ -120,12 +146,11 @@ def my_files(request):
     files = File.objects.filter(owner=user.username)
     return render(request, 'my_files.html', {'files': files, 'user': user})
 
-
 def view_file(request, file_id):
     user = get_user_from_token(request)
     file = get_object_or_404(File, id=file_id)
-    
-    # Access control
+
+    # Check if the file is made public
     try:
         public_record = FilePublicURL.objects.get(file=file)
     except FilePublicURL.DoesNotExist:
@@ -133,10 +158,17 @@ def view_file(request, file_id):
 
     is_public = public_record.is_public if public_record else False
 
+    # Deny access if not public and not owner
     if file.owner != (user.username if user else None) and not is_public:
         return render(request, 'access_denied.html', {'user': user})
 
+    # Fetch comments
     comments = Comment.objects.filter(file_id=file, parent_comment_id=None).order_by('created_at')
+
+    # Get temporary shared URL if redirected after link generation
+    shared_token = None
+    if request.GET.get('shared') == '1':
+        shared_token = request.session.pop('shared_token', None)
 
     if request.method == 'POST':
         if not user:
@@ -147,11 +179,40 @@ def view_file(request, file_id):
         parent_id = data.get('parent_comment_id')
         parent_comment = Comment.objects.get(id=parent_id) if parent_id else None
         Comment.objects.create(user=user.username, file_id=file, parent_comment_id=parent_comment, comment_text=text)
-        return JsonResponse({'success': True})
+        return JsonResponse({'success': True, 'comment_user': user.username})
 
     return render(request, 'view_file.html', {
         'file': file,
         'comments': comments,
         'user': user,
-        'is_public': is_public
+        'is_public': is_public,
+        'shared_token': shared_token,
+        'request': request
+    })
+
+
+def shared_file(request, token):
+    signed = get_object_or_404(SignedURL, signed_url=token)
+    if signed.is_expired():
+        return render(request, 'link_expired.html')
+
+    file = signed.file
+    comments = Comment.objects.filter(file_id=file, parent_comment_id=None).order_by('created_at')
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            text = data.get('comment_text')
+            parent_id = data.get('parent_comment_id')
+            parent_comment = Comment.objects.get(id=parent_id) if parent_id else None
+
+            Comment.objects.create(user=signed.recipient_name, file_id=file, parent_comment_id=parent_comment, comment_text=text)
+            return JsonResponse({'success': True, 'comment_user': signed.recipient_name})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return render(request, 'shared_file.html', {
+        'file': file,
+        'comments': comments,
+        'recipient': signed.recipient_name,
     })

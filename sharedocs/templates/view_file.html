@@ -15,6 +15,7 @@
 <body>
   {% include 'navbar.html' %}
   {% load time_ago %}
+  
   <div class="container mt-4">
     <h3>Viewing: {{ file.name }}</h3>
 
@@ -27,7 +28,37 @@
       </form>
     {% endif %}
 
-    <embed src="{{ file.name.url }}" type="application/pdf" width="100%" height="600px" />
+    <embed src="{{ file.name.url }}" type="application/pdf" width="100%" height="600px" /><br><br>
+
+    {% if user and user.username == file.owner %}
+      <form method="post" action="/share_file/{{ file.id }}/" class="mb-3">
+        {% csrf_token %}
+        <div class="input-group">
+          <input type="text" name="recipient_name" class="form-control" placeholder="Recipient Name" required>
+          <button type="submit" class="btn btn-outline-primary">Generate Shareable Link</button>
+        </div>
+      </form>
+
+      {% if shared_token %}
+        <div class="alert alert-success mt-2">
+          Shareable Link:
+          <a href="/shared_file/{{ shared_token }}/" target="_blank">
+            http://{{ request.get_host }}/shared_file/{{ shared_token }}/
+          </a>
+          <button onclick="navigator.clipboard.writeText('http://{{ request.get_host }}/shared_file/{{ shared_token }}/')" class="btn btn-sm btn-outline-secondary ms-2">Copy URL</button>
+        </div>
+
+        <script>
+          // Remove ?shared=1 from the URL without reloading the page
+          window.onload = function() {
+            const url = new URL(window.location);
+            url.searchParams.delete('shared');
+            window.history.replaceState({}, document.title, url);
+          }
+        </script>
+      {% endif %}
+    {% endif %}
+
 
     <div class="mt-5">
       <h5>Comments</h5>

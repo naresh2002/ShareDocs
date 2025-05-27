@@ -49,10 +49,32 @@
         comment_text: text,
         parent_comment_id: commentId
       })
-    }).then(response => {
-      if (response.ok) {
-        window.location.reload();  // TODO: replace with dynamic render if desired
-      }
-    });
+    }).then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Add new reply to DOM
+          const replyContainer = form.closest('.comment').querySelector('.reply') || createReplyContainer(form.closest('.comment'));
+          const newReply = document.createElement('div');
+          newReply.classList.add('reply');
+          newReply.innerHTML = `
+            <div class="comment mb-2 ms-3">
+              <strong>${data.comment_user}</strong>: ${text}
+              <small class="text-muted">• just now</small>
+            </div>
+          `;
+          replyContainer.appendChild(newReply);
+
+          // Clear and hide form
+          textarea.value = '';
+          form.classList.add('d-none');
+        }
+      });
+  }
+
+  function createReplyContainer(commentDiv) {
+    const container = document.createElement('div');
+    container.classList.add('reply');
+    commentDiv.appendChild(container);
+    return container;
   }
 </script>
