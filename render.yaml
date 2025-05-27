@@ -3,9 +3,13 @@ services:
     name: sharedocs
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn project.wsgi:application
-    preDeployCommand: python manage.py migrate --noinput
+    startCommand: ls
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: project.settings
       - fromDotEnv: true
+
+    postDeployCommand: |
+      echo "Running migrations..."
+      python manage.py migrate --noinput
+      echo "Migrations done!"
