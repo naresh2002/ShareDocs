@@ -8,3 +8,6 @@ services:
       - key: DJANGO_SETTINGS_MODULE
         value: project.settings
       - fromDotEnv: true
+
+    postDeployCommand: |
+      python manage.py migrate
